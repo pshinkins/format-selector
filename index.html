@@ -1080,7 +1080,7 @@ table { min-width: 640px; }
 <script>
 // ═══════════════ DATA — Google Sheets CSV ═══════════════
 const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRZ2E0dNNzYOZo7negSFgJYYYBt7y-bt2rjLjwkI5451w2eb13M5RQWh0nRmLXhMQ/pub?gid=498576696&single=true&output=csv';
-const PROXY = 'https://corsproxy.io/?';
+const WORKER_URL = 'https://csv-proxy.anastapenetsu.workers.dev/';
 
 let FMT = [];
 
@@ -1211,10 +1211,9 @@ async function loadData() {
   if (loader) loader.style.display = 'flex';
 
   const attempts = [
-    () => fetch(CSV_URL),
+    () => fetch(WORKER_URL),
+    () => fetch(CSV_URL, {mode:'cors'}),
     () => fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent(CSV_URL)),
-    () => fetch('https://corsproxy.io/?' + encodeURIComponent(CSV_URL)),
-    () => fetch('https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(CSV_URL)),
   ];
 
   for (const attempt of attempts) {
@@ -1222,22 +1221,20 @@ async function loadData() {
       const resp = await attempt();
       if (!resp.ok) continue;
       const text = await resp.text();
-      if (!text || text.length < 50) continue;
+      if (!text || text.length < 50 || text.trim().startsWith('<')) continue;
       const rows = parseCSV(text);
       FMT = rows.filter(r => r['id'] && r['название']).map(csvRowToFormat);
       if (FMT.length === 0) continue;
       initApp();
       return;
-    } catch(e) { /* пробуем следующий */ }
+    } catch(e) { console.warn('attempt failed', e.message); }
   }
 
   if (loader) loader.innerHTML = `
     <div style="color:var(--ink2);font-size:12px;text-align:center;padding:32px;max-width:340px;line-height:1.9">
       <div style="font-size:15px;color:var(--ink);font-weight:500;margin-bottom:12px">Не удалось загрузить данные</div>
-      Это происходит при открытии файла напрямую с компьютера.<br><br>
-      <b style="color:var(--ink)">Решение:</b> выложите файл на GitHub Pages —
-      тогда данные будут загружаться без ограничений.<br><br>
-      <div style="font-size:10px;color:var(--ink3)">Или временно: откройте файл через Live Server в VS Code</div>
+      Проверьте консоль браузера (Cmd+Option+J) для деталей.<br><br>
+      <b style="color:var(--ink)">Убедитесь</b> что таблица опубликована<br>в Google Sheets → Файл → Поделиться → Опубликовать в интернете.
     </div>`;
 }
 
